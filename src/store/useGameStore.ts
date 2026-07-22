@@ -20,15 +20,21 @@ export interface Drone {
   mPayload: number;
   mMax: number;
   vMax: number;
+  radioRangeMeters: number;
 }
 
+import type { DroneBlueprint } from '../game/parts';
+import { AIRFRAMES, BATTERIES, RADIOS } from '../game/parts';
+
 interface GameState {
+  gamePhase: 'hangar' | 'tactical';
   drone: Drone;
   simulationRunning: boolean;
   networkConnected: boolean;
   sectorCovered: boolean;
   bufferTimeRemaining: number;
   missionStatus: 'active' | 'failed';
+  deployBlueprint: (blueprint: DroneBlueprint) => void;
   launchDrone: () => void;
   tick: () => void;
   startSimulation: () => void;
@@ -38,6 +44,7 @@ interface GameState {
 let tickInterval: ReturnType<typeof setInterval> | null = null;
 
 export const useGameStore = create<GameState>((set, get) => ({
+  gamePhase: 'hangar',
   drone: {
     id: 'scout-1',
     position: GAME_CONSTANTS.HOME_BASE_POS,
@@ -50,12 +57,41 @@ export const useGameStore = create<GameState>((set, get) => ({
     mPayload: 1.0,
     mMax: 2.0,
     vMax: 15,
+    radioRangeMeters: 200,
   },
   simulationRunning: false,
   networkConnected: true,
   sectorCovered: false,
   bufferTimeRemaining: GAME_CONSTANTS.BUFFER_TIME_SEC,
   missionStatus: 'active',
+  deployBlueprint: (blueprint) => {
+    // Look up the parts
+    const airframe = AIRFRAMES.find((p: any) => p.id === blueprint.airframeId);
+    const battery = BATTERIES.find((p: any) => p.id === blueprint.batteryId);
+    const radio = RADIOS.find((p: any) => p.id === blueprint.radioId);
+    
+    if (!airframe || !battery || !radio) return;
+
+    const massPayload = battery.massKg + radio.massKg;
+
+    set({
+      gamePhase: 'tactical',
+      drone: {
+        id: blueprint.id,
+        position: GAME_CONSTANTS.HOME_BASE_POS,
+        targetPosition: null,
+        status: 'idle',
+        batteryMaxWh: battery.specs.capacityWh!,
+        batteryWh: battery.specs.capacityWh!,
+        pBase: airframe.specs.basePowerDrawW!,
+        pRadio: radio.specs.basePowerDrawW!,
+        mPayload: massPayload,
+        mMax: airframe.specs.maxPayloadKg!,
+        vMax: airframe.specs.maxSpeedMs!,
+        radioRangeMeters: radio.specs.radioRangeMeters!,
+      }
+    });
+  },
   launchDrone: () =>
     set((state) => ({
       drone: {
@@ -101,8 +137,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
 
       // Mesh Logic
-      const droneConnected = getDistance(newPosition, GAME_CONSTANTS.HOME_BASE_POS) <= GAME_CONSTANTS.COMM_RANGE;
-      const sectorConnected = droneConnected && getDistance(newPosition, GAME_CONSTANTS.TARGET_POS) <= GAME_CONSTANTS.COMM_RANGE;
+      const range = drone.radioRangeMeters;
+      const droneConnected = getDistance(newPosition, GAME_CONSTANTS.HOME_BASE_POS) <= range;
+      const sectorConnected = droneConnected && getDistance(newPosition, GAME_CONSTANTS.TARGET_POS) <= range;
       
       let newBuffer = state.bufferTimeRemaining;
       let newMissionStatus: GameState['missionStatus'] = state.missionStatus;

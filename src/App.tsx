@@ -4,24 +4,35 @@ import { HUD } from './ui/HUD';
 import { GAME_CONSTANTS } from './constants';
 import { useGameStore } from './store/useGameStore';
 
+import { Hangar } from './ui/Hangar';
+
 function App() {
+  const gamePhase = useGameStore((state) => state.gamePhase);
   const startSimulation = useGameStore((state) => state.startSimulation);
   const stopSimulation = useGameStore((state) => state.stopSimulation);
 
   useEffect(() => {
-    startSimulation();
+    if (gamePhase === 'tactical') {
+      startSimulation();
+    } else {
+      stopSimulation();
+    }
     return () => stopSimulation();
-  }, [startSimulation, stopSimulation]);
+  }, [startSimulation, stopSimulation, gamePhase]);
 
   return (
     <div className="min-h-screen bg-neutral-900 flex items-center justify-center font-sans">
-      <div 
-        className="relative shadow-2xl border border-neutral-800 rounded overflow-hidden"
-        style={{ width: GAME_CONSTANTS.CANVAS_WIDTH, height: GAME_CONSTANTS.CANVAS_HEIGHT }}
-      >
-        <PhaserGame />
-        <HUD />
-      </div>
+      {gamePhase === 'hangar' ? (
+        <Hangar />
+      ) : (
+        <div 
+          className="relative shadow-2xl border border-neutral-800 rounded overflow-hidden"
+          style={{ width: GAME_CONSTANTS.CANVAS_WIDTH, height: GAME_CONSTANTS.CANVAS_HEIGHT }}
+        >
+          <PhaserGame />
+          <HUD />
+        </div>
+      )}
     </div>
   );
 }

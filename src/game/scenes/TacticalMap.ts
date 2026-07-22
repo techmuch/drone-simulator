@@ -27,7 +27,7 @@ export class TacticalMap extends Scene {
     const store = useGameStore.getState();
     const droneState = store.drone;
     
-    this.droneRangeRing = this.add.circle(droneState.position.x, droneState.position.y, GAME_CONSTANTS.COMM_RANGE, 0x00ff00, 0.1)
+    this.droneRangeRing = this.add.circle(droneState.position.x, droneState.position.y, droneState.radioRangeMeters, 0x00ff00, 0.1)
         .setStrokeStyle(1, 0x00ff00, 0.5);
         
     this.droneSprite = this.add.circle(droneState.position.x, droneState.position.y, 10, 0x00ffff);

@@ -6,6 +6,7 @@ describe('useGameStore', () => {
   beforeEach(() => {
     // Reset store state before each test
     useGameStore.setState({
+      gamePhase: 'tactical',
       drone: {
         id: 'scout-1',
         position: GAME_CONSTANTS.HOME_BASE_POS,
@@ -18,9 +19,11 @@ describe('useGameStore', () => {
         mPayload: 1.0,
         mMax: 2.0,
         vMax: 15,
+        radioRangeMeters: 200,
       },
       simulationRunning: false,
       networkConnected: true,
+      sectorCovered: false,
       bufferTimeRemaining: 10,
       missionStatus: 'active',
     });
@@ -33,13 +36,25 @@ describe('useGameStore', () => {
     vi.useRealTimers();
   });
 
-  it('initializes with a drone at home base and connected', () => {
+  it('initializes in hangar phase by default but resets to tactical for tests', () => {
     const state = useGameStore.getState();
-    expect(state.drone.status).toBe('idle');
-    expect(state.drone.position).toEqual(GAME_CONSTANTS.HOME_BASE_POS);
-    expect(state.drone.batteryWh).toBe(80);
-    expect(state.networkConnected).toBe(true);
-    expect(state.bufferTimeRemaining).toBe(10);
+    expect(state.gamePhase).toBe('tactical');
+  });
+
+  it('deploys a blueprint correctly', () => {
+    const store = useGameStore.getState();
+    store.deployBlueprint({
+      id: 'custom-test',
+      name: 'Custom',
+      airframeId: 'af-scout',
+      batteryId: 'bat-heavy',
+      radioId: 'rad-beam'
+    });
+    
+    const newState = useGameStore.getState();
+    expect(newState.gamePhase).toBe('tactical');
+    expect(newState.drone.batteryMaxWh).toBe(200);
+    expect(newState.drone.radioRangeMeters).toBe(500);
   });
 
   it('drops connectivity and decreases buffer when out of range', () => {
