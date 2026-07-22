@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { GAME_CONSTANTS } from '../constants';
+import { calculateSpeed, calculatePowerDraw } from '../game/physics';
 
 export interface Vector2D {
   x: number;
@@ -25,7 +26,6 @@ interface GameState {
   drone: Drone;
   simulationRunning: boolean;
   launchDrone: () => void;
-  resolveDeployment: () => void;
   tick: () => void;
   startSimulation: () => void;
   stopSimulation: () => void;
@@ -56,33 +56,47 @@ export const useGameStore = create<GameState>((set, get) => ({
         targetPosition: GAME_CONSTANTS.TARGET_POS,
       },
     })),
-  resolveDeployment: () =>
-    set((state) => ({
-      drone: {
-        ...state.drone,
-        status: 'idle',
-        position: state.drone.targetPosition || state.drone.position,
-        targetPosition: null,
-      },
-    })),
   tick: () =>
     set((state) => {
       const drone = state.drone;
       if (drone.status === 'crashed') return state;
 
-      // P_total = P_base * (1 + m_payload / m_max) + P_radio
-      const pTotal = drone.pBase * (1 + drone.mPayload / drone.mMax) + drone.pRadio;
+      const speed = calculateSpeed(drone);
+      const pTotal = calculatePowerDraw(drone);
       const drainWh = pTotal / 3600; // Wh consumed in 1 second
       
       const newBattery = Math.max(0, drone.batteryWh - drainWh);
       
-      // If we're flying but run out of battery, crash.
-      // If we're idle at base, maybe we recharge, but for now we just don't crash.
-      const newStatus = (newBattery === 0 && drone.status === 'deploying') ? 'crashed' : drone.status;
+      let newStatus: Drone['status'] = drone.status;
+      let newPosition = { ...drone.position };
+      let newTarget = drone.targetPosition;
+
+      if (drone.status === 'deploying' && newTarget) {
+        // Move drone by speed (px/sec) for this 1 Hz tick
+        const dx = newTarget.x - newPosition.x;
+        const dy = newTarget.y - newPosition.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist <= speed) {
+          newPosition = newTarget;
+          newStatus = 'idle';
+          newTarget = null;
+        } else {
+          newPosition.x += (dx / dist) * speed;
+          newPosition.y += (dy / dist) * speed;
+        }
+      }
+      
+      // Crash if out of battery while deployed
+      if (newBattery === 0 && newStatus === 'deploying') {
+        newStatus = 'crashed';
+      }
 
       return {
         drone: {
           ...drone,
+          position: newPosition,
+          targetPosition: newTarget,
           batteryWh: newBattery,
           status: newStatus
         }

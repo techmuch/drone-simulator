@@ -23,37 +23,21 @@ export class TacticalMap extends Scene {
     this.droneSprite = this.add.circle(droneState.position.x, droneState.position.y, 10, 0x00ffff);
   }
 
-  update(_time: number, delta: number) {
+  update(_time: number, _delta: number) {
     const store = useGameStore.getState();
     const droneState = store.drone;
 
-    if (droneState.status === 'deploying' && droneState.targetPosition) {
-      this.moveDrone(droneState, delta, store.resolveDeployment);
-    } else if (droneState.status === 'crashed') {
+    // Sync visual position with store state
+    // We can just set it, or lerp slightly if we wanted smoothness. 
+    // Since tick is 1 Hz, setting it directly will jump once per second.
+    // For a smoother visual, we can lerp towards the store's position.
+    this.droneSprite.x += (droneState.position.x - this.droneSprite.x) * 0.1;
+    this.droneSprite.y += (droneState.position.y - this.droneSprite.y) * 0.1;
+
+    if (droneState.status === 'crashed') {
       this.droneSprite.setFillStyle(0xff0000); // Red wreckage
     } else {
       this.droneSprite.setFillStyle(0x00ffff); // Normal color
-    }
-  }
-
-  private moveDrone(droneState: any, delta: number, onComplete: () => void) {
-    // Calculate dynamic speed based on payload
-    // v = vMax * (1 - 0.5 * mPayload / mMax) -> m/s which equals px/s
-    const speedPxPerSec = droneState.vMax * (1 - 0.5 * droneState.mPayload / droneState.mMax);
-    const speed = speedPxPerSec / 1000; // px per ms
-
-    const target = droneState.targetPosition;
-    const dx = target.x - this.droneSprite.x;
-    const dy = target.y - this.droneSprite.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    if (dist > 5) {
-      this.droneSprite.x += (dx / dist) * speed * delta;
-      this.droneSprite.y += (dy / dist) * speed * delta;
-    } else {
-      this.droneSprite.x = target.x;
-      this.droneSprite.y = target.y;
-      onComplete();
     }
   }
 }

@@ -36,15 +36,18 @@ describe('useGameStore', () => {
     expect(state.drone.batteryWh).toBe(80);
   });
 
-  it('drains battery correctly on each tick', () => {
+  it('drains battery and moves correctly on each tick', () => {
     const store = useGameStore.getState();
+    store.launchDrone(); // deploy
     
     // P_total = 20 * (1 + 1/2) + 5 = 35 W
     // Drain per tick = 35 / 3600 = 0.009722 Wh
+    // Speed = 15 * (1 - 0.5 * 1/2) = 11.25 px/s
     store.tick();
     
     const updatedState = useGameStore.getState();
     expect(updatedState.drone.batteryWh).toBeCloseTo(80 - (35 / 3600), 5);
+    expect(updatedState.drone.position.x).not.toEqual(GAME_CONSTANTS.HOME_BASE_POS.x); // Should have moved
   });
 
   it('crashes the drone if battery hits 0 while deployed', () => {
@@ -53,6 +56,7 @@ describe('useGameStore', () => {
         ...state.drone,
         status: 'deploying',
         batteryWh: 0.005, // Almost dead
+        targetPosition: GAME_CONSTANTS.TARGET_POS
       }
     }));
 

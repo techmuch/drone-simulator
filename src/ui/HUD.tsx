@@ -1,24 +1,13 @@
 import { useGameStore } from '../store/useGameStore';
-import { GAME_CONSTANTS } from '../constants';
+import { calculatePowerDraw, calculateBingoWh } from '../game/physics';
 
 export function HUD() {
   const drone = useGameStore((state) => state.drone);
   const launchDrone = useGameStore((state) => state.launchDrone);
 
-  // Power Math
-  const pTotal = drone.pBase * (1 + drone.mPayload / drone.mMax) + drone.pRadio;
-  
-  // Speed Math
-  const speedPxPerSec = drone.vMax * (1 - 0.5 * drone.mPayload / drone.mMax);
-  
-  // Bingo Fuel Math
-  const dx = drone.position.x - GAME_CONSTANTS.HOME_BASE_POS.x;
-  const dy = drone.position.y - GAME_CONSTANTS.HOME_BASE_POS.y;
-  const distanceToHome = Math.sqrt(dx * dx + dy * dy); // in meters/pixels
-  
-  const timeToHomeSec = distanceToHome / speedPxPerSec;
-  const bingoTimeSec = timeToHomeSec + GAME_CONSTANTS.BINGO_MARGIN_SEC;
-  const bingoWh = (bingoTimeSec * pTotal) / 3600;
+  // Math from Physics module
+  const pTotal = calculatePowerDraw(drone);
+  const bingoWh = calculateBingoWh(drone);
 
   const isBingo = drone.batteryWh <= bingoWh;
   const batteryPercent = (drone.batteryWh / drone.batteryMaxWh) * 100;
