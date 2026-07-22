@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { GAME_CONSTANTS } from '../constants';
 
 export interface Vector2D {
   x: number;
@@ -15,12 +16,13 @@ export interface Drone {
 interface GameState {
   drone: Drone;
   launchDrone: () => void;
+  resolveDeployment: () => void;
 }
 
 export const useGameStore = create<GameState>((set) => ({
   drone: {
     id: 'scout-1',
-    position: { x: 100, y: 500 }, // Home base position
+    position: GAME_CONSTANTS.HOME_BASE_POS,
     targetPosition: null,
     status: 'idle',
   },
@@ -29,7 +31,16 @@ export const useGameStore = create<GameState>((set) => ({
       drone: {
         ...state.drone,
         status: 'deploying',
-        targetPosition: { x: 600, y: 100 }, // Target disaster zone
+        targetPosition: GAME_CONSTANTS.TARGET_POS,
+      },
+    })),
+  resolveDeployment: () =>
+    set((state) => ({
+      drone: {
+        ...state.drone,
+        status: 'idle',
+        position: state.drone.targetPosition || state.drone.position,
+        targetPosition: null,
       },
     })),
 }));

@@ -5,16 +5,7 @@ export function HUD() {
   const launchDrone = useGameStore((state) => state.launchDrone);
 
   return (
-    <div className="absolute top-0 left-0 w-[800px] h-[600px] pointer-events-none p-4 flex flex-col justify-between">
-      {/* Top Bar */}
-      <div className="flex justify-between items-start">
-        <div className="bg-black/80 border border-green-900/50 p-4 rounded text-green-500 font-mono text-sm">
-          <h1 className="font-bold text-lg text-green-400 mb-2">DRONE SIMULATOR OS</h1>
-          <div>MISSION: Restore Sector 4</div>
-          <div>STATUS: {drone.status.toUpperCase()}</div>
-        </div>
-      </div>
-
+    <div className="absolute top-0 left-0 w-full h-full pointer-events-none p-4 flex flex-col justify-end">
       {/* Bottom Action Bar */}
       <div className="flex justify-end pointer-events-auto">
         <button 

@@ -1,7 +1,7 @@
 import { forwardRef, useLayoutEffect, useRef } from 'react';
 import { Game } from 'phaser';
 import { TacticalMap } from './scenes/TacticalMap';
-import { EventBus } from './EventBus';
+import { GAME_CONSTANTS } from '../constants';
 
 export const PhaserGame = forwardRef<HTMLDivElement>((_props, _ref) => {
     const gameRef = useRef<Game | null>(null);
@@ -11,13 +11,12 @@ export const PhaserGame = forwardRef<HTMLDivElement>((_props, _ref) => {
         if (!gameRef.current && containerRef.current) {
             gameRef.current = new Game({
                 type: Phaser.AUTO,
-                width: 800,
-                height: 600,
+                width: GAME_CONSTANTS.CANVAS_WIDTH,
+                height: GAME_CONSTANTS.CANVAS_HEIGHT,
                 parent: containerRef.current,
                 backgroundColor: '#050505',
                 scene: [TacticalMap]
             });
-            EventBus.emit('current-scene-ready', gameRef.current.scene.scenes[0]);
         }
         return () => {
             if (gameRef.current) {
