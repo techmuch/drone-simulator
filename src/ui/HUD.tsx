@@ -12,7 +12,19 @@ export function HUD() {
   const isBingo = drone.batteryWh <= bingoWh;
   const batteryPercent = (drone.batteryWh / drone.batteryMaxWh) * 100;
   
+  const store = useGameStore();
+  const networkConnected = store.networkConnected;
+  const bufferTime = store.bufferTimeRemaining;
+  const missionStatus = store.missionStatus;
+  
   const statusColor = drone.status === 'crashed' ? 'text-red-500' : 'text-green-500';
+
+  let netStatusDisplay = <span className="font-bold text-green-500">CONNECTED (STABLE)</span>;
+  if (missionStatus === 'failed') {
+    netStatusDisplay = <span className="font-bold text-red-500 animate-pulse">CRITICAL: MISSION FAILED</span>;
+  } else if (!networkConnected) {
+    netStatusDisplay = <span className="font-bold text-yellow-500 animate-pulse">WARNING: SIGNAL LOST (BUFFER: {bufferTime}s)</span>;
+  }
 
   return (
     <div className="absolute top-0 left-0 w-full h-full pointer-events-none p-4 flex flex-col justify-between">
@@ -27,6 +39,10 @@ export function HUD() {
           <div className="flex justify-between mb-2">
             <span>DRAIN:</span>
             <span>{pTotal.toFixed(1)} W</span>
+          </div>
+          <div className="flex justify-between mb-2 border-b border-green-900/50 pb-2">
+            <span>NETWORK:</span>
+            {netStatusDisplay}
           </div>
           
           <div className="mt-4">
@@ -58,10 +74,12 @@ export function HUD() {
       <div className="flex justify-end pointer-events-auto">
         <button 
           onClick={launchDrone}
-          disabled={drone.status !== 'idle'}
+          disabled={drone.status !== 'idle' || missionStatus === 'failed'}
           className="bg-green-600 hover:bg-green-500 disabled:bg-gray-700 text-white font-bold py-3 px-6 rounded shadow-lg shadow-green-900/50 transition-colors border border-green-400/30"
         >
-          {drone.status === 'idle' ? 'LAUNCH DRONE' : (drone.status === 'crashed' ? 'SYSTEM OFFLINE' : 'DEPLOYING...')}
+          {drone.status === 'idle' && missionStatus !== 'failed' ? 'LAUNCH DRONE' : 
+            (missionStatus === 'failed' ? 'MISSION FAILED' :
+            (drone.status === 'crashed' ? 'SYSTEM OFFLINE' : 'DEPLOYING...'))}
         </button>
       </div>
     </div>

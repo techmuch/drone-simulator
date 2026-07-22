@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { GAME_CONSTANTS } from '../constants';
-import { calculateSpeed, calculatePowerDraw } from '../game/physics';
+import { calculateSpeed, calculatePowerDraw, getDistance } from '../game/physics';
 
 export interface Vector2D {
   x: number;
@@ -25,6 +25,9 @@ export interface Drone {
 interface GameState {
   drone: Drone;
   simulationRunning: boolean;
+  networkConnected: boolean;
+  bufferTimeRemaining: number;
+  missionStatus: 'active' | 'failed';
   launchDrone: () => void;
   tick: () => void;
   startSimulation: () => void;
@@ -48,6 +51,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     vMax: 15,
   },
   simulationRunning: false,
+  networkConnected: true,
+  bufferTimeRemaining: GAME_CONSTANTS.BUFFER_TIME_SEC,
+  missionStatus: 'active',
   launchDrone: () =>
     set((state) => ({
       drone: {
@@ -59,7 +65,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   tick: () =>
     set((state) => {
       const drone = state.drone;
-      if (drone.status === 'crashed') return state;
+      if (drone.status === 'crashed' || state.missionStatus === 'failed') return state;
 
       const speed = calculateSpeed(drone);
       const pTotal = calculatePowerDraw(drone);
@@ -92,6 +98,23 @@ export const useGameStore = create<GameState>((set, get) => ({
         newStatus = 'crashed';
       }
 
+      // Mesh Logic
+      const droneConnected = getDistance(newPosition, GAME_CONSTANTS.HOME_BASE_POS) <= GAME_CONSTANTS.COMM_RANGE;
+      
+      let newBuffer = state.bufferTimeRemaining;
+      let newMissionStatus: GameState['missionStatus'] = state.missionStatus;
+
+      const isMeshBroken = !droneConnected;
+
+      if (isMeshBroken) {
+        newBuffer = Math.max(0, newBuffer - 1);
+        if (newBuffer === 0) {
+          newMissionStatus = 'failed';
+        }
+      } else {
+        newBuffer = GAME_CONSTANTS.BUFFER_TIME_SEC;
+      }
+
       return {
         drone: {
           ...drone,
@@ -99,7 +122,10 @@ export const useGameStore = create<GameState>((set, get) => ({
           targetPosition: newTarget,
           batteryWh: newBattery,
           status: newStatus
-        }
+        },
+        networkConnected: droneConnected,
+        bufferTimeRemaining: newBuffer,
+        missionStatus: newMissionStatus,
       };
     }),
   startSimulation: () => {

@@ -5,4 +5,6 @@ export const GAME_CONSTANTS = {
   TARGET_POS: { x: 600, y: 100 },
   TICK_RATE_MS: 1000,
   BINGO_MARGIN_SEC: 5,
+  COMM_RANGE: 200,
+  BUFFER_TIME_SEC: 10,
 };

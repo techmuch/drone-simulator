@@ -9,10 +9,14 @@ export const calculatePowerDraw = (drone: Drone): number => {
   return drone.pBase * (1 + drone.mPayload / drone.mMax) + drone.pRadio;
 };
 
+export const getDistance = (p1: { x: number, y: number }, p2: { x: number, y: number }): number => {
+  const dx = p1.x - p2.x;
+  const dy = p1.y - p2.y;
+  return Math.sqrt(dx * dx + dy * dy);
+};
+
 export const calculateBingoWh = (drone: Drone): number => {
-  const dx = drone.position.x - GAME_CONSTANTS.HOME_BASE_POS.x;
-  const dy = drone.position.y - GAME_CONSTANTS.HOME_BASE_POS.y;
-  const distanceToHome = Math.sqrt(dx * dx + dy * dy);
+  const distanceToHome = getDistance(drone.position, GAME_CONSTANTS.HOME_BASE_POS);
   
   const timeToHomeSec = distanceToHome / calculateSpeed(drone);
   const bingoTimeSec = timeToHomeSec + GAME_CONSTANTS.BINGO_MARGIN_SEC;
