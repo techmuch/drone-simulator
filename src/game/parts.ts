@@ -21,7 +21,25 @@ export interface DroneBlueprint {
   airframeId: string;
   batteryId: string;
   radioId: string;
-  auxPayloadId?: string;
+}
+
+export function compileBlueprint(blueprint: Omit<DroneBlueprint, 'id' | 'name'>) {
+  const airframe = AIRFRAMES.find(p => p.id === blueprint.airframeId);
+  const battery = BATTERIES.find(p => p.id === blueprint.batteryId);
+  const radio = RADIOS.find(p => p.id === blueprint.radioId);
+  
+  if (!airframe || !battery || !radio) return null;
+
+  return {
+    totalCost: airframe.cost + battery.cost + radio.cost,
+    batteryMaxWh: battery.specs.capacityWh!,
+    pBase: airframe.specs.basePowerDrawW!,
+    pRadio: radio.specs.basePowerDrawW!,
+    mPayload: battery.massKg + radio.massKg,
+    mMax: airframe.specs.maxPayloadKg!,
+    vMax: airframe.specs.maxSpeedMs!,
+    radioRangeMeters: radio.specs.radioRangeMeters!,
+  };
 }
 
 export const AIRFRAMES: ComponentPart[] = [

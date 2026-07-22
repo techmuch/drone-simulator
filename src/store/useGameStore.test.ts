@@ -6,6 +6,7 @@ describe('useGameStore', () => {
   beforeEach(() => {
     // Reset store state before each test
     useGameStore.setState({
+      budget: 2000,
       gamePhase: 'tactical',
       drone: {
         id: 'scout-1',
@@ -41,20 +42,21 @@ describe('useGameStore', () => {
     expect(state.gamePhase).toBe('tactical');
   });
 
-  it('deploys a blueprint correctly', () => {
+  it('deploys a blueprint correctly and deducts budget', () => {
     const store = useGameStore.getState();
+    expect(store.budget).toBe(2000);
+
     store.deployBlueprint({
-      id: 'custom-test',
-      name: 'Custom',
       airframeId: 'af-scout',
       batteryId: 'bat-heavy',
       radioId: 'rad-beam'
-    });
+    } as any);
     
     const newState = useGameStore.getState();
     expect(newState.gamePhase).toBe('tactical');
     expect(newState.drone.batteryMaxWh).toBe(200);
     expect(newState.drone.radioRangeMeters).toBe(500);
+    expect(newState.budget).toBe(800); // 2000 - (500 + 300 + 400)
   });
 
   it('drops connectivity and decreases buffer when out of range', () => {

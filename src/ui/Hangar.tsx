@@ -1,103 +1,111 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { AIRFRAMES, BATTERIES, RADIOS } from '../game/parts';
-import type { DroneBlueprint } from '../game/parts';
-import { calculateSpeed, calculatePowerDraw } from '../game/physics';
+import type { ComponentPart } from '../game/parts';
+import { compileBlueprint } from '../game/parts';
+import { calculateSpeed, calculatePowerDraw, calculateFlightTimeSec } from '../game/physics';
+
+// Reusable part selector component
+function PartSelector({ 
+  label, 
+  parts, 
+  selectedId, 
+  onSelect,
+  renderSpecs 
+}: { 
+  label: string, 
+  parts: ComponentPart[], 
+  selectedId: string, 
+  onSelect: (id: string) => void,
+  renderSpecs: (part: ComponentPart) => string
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-sm font-bold text-neutral-400">{label}</label>
+      <div className="flex gap-2">
+        {parts.map(p => (
+          <button 
+            key={p.id} 
+            onClick={() => onSelect(p.id)}
+            className={`p-4 flex-1 text-left border rounded transition-colors ${selectedId === p.id ? 'border-green-500 bg-green-900/20' : 'border-neutral-600 hover:bg-neutral-700'}`}
+          >
+            <div className="flex justify-between">
+              <span className="font-bold">{p.name}</span>
+              <span className="text-green-400 font-mono">${p.cost}</span>
+            </div>
+            <div className="text-xs text-neutral-400 mt-1">{renderSpecs(p)}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function Hangar() {
   const deployBlueprint = useGameStore((state) => state.deployBlueprint);
+  const budget = useGameStore((state) => state.budget);
 
   const [airframeId, setAirframeId] = useState(AIRFRAMES[0].id);
   const [batteryId, setBatteryId] = useState(BATTERIES[0].id);
   const [radioId, setRadioId] = useState(RADIOS[0].id);
 
-  // Compute predictor stats
-  const airframe = AIRFRAMES.find(a => a.id === airframeId)!;
-  const battery = BATTERIES.find(b => b.id === batteryId)!;
-  const radio = RADIOS.find(r => r.id === radioId)!;
+  const stats = compileBlueprint({ airframeId, batteryId, radioId });
+  if (!stats) return null;
 
-  const totalMassKg = battery.massKg + radio.massKg;
-  
-  // Create a mock drone to use physics calculations
-  const mockDrone = {
-    pBase: airframe.specs.basePowerDrawW!,
-    pRadio: radio.specs.basePowerDrawW!,
-    mPayload: totalMassKg,
-    mMax: airframe.specs.maxPayloadKg!,
-    vMax: airframe.specs.maxSpeedMs!,
-  };
+  const mockDrone = { ...stats } as any;
 
-  const isOverweight = totalMassKg > mockDrone.mMax;
+  const isOverweight = stats.mPayload > stats.mMax;
+  const isUnaffordable = stats.totalCost > budget;
   
-  const speed = isOverweight ? 0 : calculateSpeed(mockDrone as any);
-  const powerDraw = calculatePowerDraw(mockDrone as any);
-  const flightTimeSec = isOverweight ? 0 : (battery.specs.capacityWh! / powerDraw) * 3600;
+  const speed = isOverweight ? 0 : calculateSpeed(mockDrone);
+  const powerDraw = calculatePowerDraw(mockDrone);
+  const flightTimeSec = isOverweight ? 0 : calculateFlightTimeSec(mockDrone);
 
   const handleDeploy = () => {
-    if (isOverweight) return;
-    const blueprint: DroneBlueprint = {
+    if (isUnaffordable) return;
+    deployBlueprint({
       id: `custom-${Date.now()}`,
       name: 'Custom Drone',
       airframeId,
       batteryId,
       radioId,
-    };
-    deployBlueprint(blueprint);
+    });
   };
 
   return (
     <div className="absolute inset-0 bg-neutral-900 z-50 text-neutral-100 flex p-8 gap-8">
       {/* Left Column: Procurement */}
       <div className="flex-1 flex flex-col gap-6 max-w-2xl border border-neutral-700 bg-neutral-800 p-6 rounded shadow-xl">
-        <h1 className="text-3xl font-bold border-b border-neutral-600 pb-4">HANGAR: PROCUREMENT & LOADOUT</h1>
+        <div className="flex justify-between items-center border-b border-neutral-600 pb-4">
+          <h1 className="text-3xl font-bold">HANGAR: PROCUREMENT & LOADOUT</h1>
+          <div className="text-2xl font-mono text-green-400 font-bold">
+            BUDGET: ${budget}
+          </div>
+        </div>
         
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-bold text-neutral-400">AIRFRAME</label>
-          <div className="flex gap-2">
-            {AIRFRAMES.map(a => (
-              <button 
-                key={a.id} 
-                onClick={() => setAirframeId(a.id)}
-                className={`p-4 flex-1 text-left border rounded transition-colors ${airframeId === a.id ? 'border-green-500 bg-green-900/20' : 'border-neutral-600 hover:bg-neutral-700'}`}
-              >
-                <div className="font-bold">{a.name}</div>
-                <div className="text-xs text-neutral-400">Max Payload: {a.specs.maxPayloadKg}kg | Base Draw: {a.specs.basePowerDrawW}W</div>
-              </button>
-            ))}
-          </div>
-        </div>
+        <PartSelector 
+          label="AIRFRAME" 
+          parts={AIRFRAMES} 
+          selectedId={airframeId} 
+          onSelect={setAirframeId}
+          renderSpecs={(p) => `Max Payload: ${p.specs.maxPayloadKg}kg | Base Draw: ${p.specs.basePowerDrawW}W`}
+        />
 
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-bold text-neutral-400">BATTERY</label>
-          <div className="flex gap-2">
-            {BATTERIES.map(b => (
-              <button 
-                key={b.id} 
-                onClick={() => setBatteryId(b.id)}
-                className={`p-4 flex-1 text-left border rounded transition-colors ${batteryId === b.id ? 'border-green-500 bg-green-900/20' : 'border-neutral-600 hover:bg-neutral-700'}`}
-              >
-                <div className="font-bold">{b.name}</div>
-                <div className="text-xs text-neutral-400">Capacity: {b.specs.capacityWh}Wh | Mass: {b.massKg}kg</div>
-              </button>
-            ))}
-          </div>
-        </div>
+        <PartSelector 
+          label="BATTERY" 
+          parts={BATTERIES} 
+          selectedId={batteryId} 
+          onSelect={setBatteryId}
+          renderSpecs={(p) => `Capacity: ${p.specs.capacityWh}Wh | Mass: ${p.massKg}kg`}
+        />
 
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-bold text-neutral-400">RADIO MODULE</label>
-          <div className="flex gap-2">
-            {RADIOS.map(r => (
-              <button 
-                key={r.id} 
-                onClick={() => setRadioId(r.id)}
-                className={`p-4 flex-1 text-left border rounded transition-colors ${radioId === r.id ? 'border-green-500 bg-green-900/20' : 'border-neutral-600 hover:bg-neutral-700'}`}
-              >
-                <div className="font-bold">{r.name}</div>
-                <div className="text-xs text-neutral-400">Range: {r.specs.radioRangeMeters}m | Mass: {r.massKg}kg</div>
-              </button>
-            ))}
-          </div>
-        </div>
+        <PartSelector 
+          label="RADIO MODULE" 
+          parts={RADIOS} 
+          selectedId={radioId} 
+          onSelect={setRadioId}
+          renderSpecs={(p) => `Range: ${p.specs.radioRangeMeters}m | Mass: ${p.massKg}kg`}
+        />
       </div>
 
       {/* Right Column: Simulation Predictor */}
@@ -107,9 +115,16 @@ export function Hangar() {
           
           <div className="space-y-4 text-sm">
             <div className="flex justify-between">
+              <span className="text-neutral-400">TOTAL COST</span>
+              <span className={`font-bold ${isUnaffordable ? 'text-red-500' : 'text-green-400'}`}>
+                ${stats.totalCost}
+              </span>
+            </div>
+
+            <div className="flex justify-between">
               <span className="text-neutral-400">PAYLOAD MASS</span>
-              <span className={`font-bold ${isOverweight ? 'text-red-500' : 'text-neutral-100'}`}>
-                {totalMassKg.toFixed(1)} / {mockDrone.mMax.toFixed(1)} kg
+              <span className={`font-bold ${isOverweight ? 'text-orange-500' : 'text-neutral-100'}`}>
+                {stats.mPayload.toFixed(1)} / {stats.mMax.toFixed(1)} kg
               </span>
             </div>
             
@@ -130,20 +145,25 @@ export function Hangar() {
 
             <div className="flex justify-between border-t border-neutral-800 pt-4 mt-4">
               <span className="text-neutral-400">NETWORK RANGE</span>
-              <span className="font-bold text-green-400">{radio.specs.radioRangeMeters} m</span>
+              <span className="font-bold text-green-400">{stats.radioRangeMeters} m</span>
             </div>
           </div>
         </div>
 
         <div>
           {isOverweight && (
+            <div className="text-orange-500 text-sm font-bold text-center mb-4">
+              WARNING: OVERWEIGHT CHASSIS
+            </div>
+          )}
+          {isUnaffordable && (
             <div className="text-red-500 text-sm font-bold text-center mb-4 animate-pulse">
-              CRITICAL: OVERWEIGHT CHASSIS
+              INSUFFICIENT FUNDS
             </div>
           )}
           <button 
             onClick={handleDeploy}
-            disabled={isOverweight}
+            disabled={isUnaffordable}
             className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 text-white font-bold py-4 rounded shadow-lg transition-colors border border-blue-400/30"
           >
             DEPLOY TO TACTICAL MAP

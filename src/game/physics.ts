@@ -20,5 +20,11 @@ export const calculateBingoWh = (drone: Drone): number => {
   
   const timeToHomeSec = distanceToHome / calculateSpeed(drone);
   const bingoTimeSec = timeToHomeSec + GAME_CONSTANTS.BINGO_MARGIN_SEC;
-  return (bingoTimeSec * calculatePowerDraw(drone)) / 3600;
+  return calculatePowerDraw(drone) * (bingoTimeSec / 3600);
+};
+
+export const calculateFlightTimeSec = (drone: Drone): number => {
+  const powerDraw = calculatePowerDraw(drone);
+  if (powerDraw === 0) return 0;
+  return (drone.batteryMaxWh / powerDraw) * 3600;
 };

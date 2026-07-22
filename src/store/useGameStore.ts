@@ -24,9 +24,10 @@ export interface Drone {
 }
 
 import type { DroneBlueprint } from '../game/parts';
-import { AIRFRAMES, BATTERIES, RADIOS } from '../game/parts';
+import { compileBlueprint } from '../game/parts';
 
 interface GameState {
+  budget: number;
   gamePhase: 'hangar' | 'tactical';
   drone: Drone;
   simulationRunning: boolean;
@@ -44,6 +45,7 @@ interface GameState {
 let tickInterval: ReturnType<typeof setInterval> | null = null;
 
 export const useGameStore = create<GameState>((set, get) => ({
+  budget: 2000,
   gamePhase: 'hangar',
   drone: {
     id: 'scout-1',
@@ -65,32 +67,27 @@ export const useGameStore = create<GameState>((set, get) => ({
   bufferTimeRemaining: GAME_CONSTANTS.BUFFER_TIME_SEC,
   missionStatus: 'active',
   deployBlueprint: (blueprint) => {
-    // Look up the parts
-    const airframe = AIRFRAMES.find((p: any) => p.id === blueprint.airframeId);
-    const battery = BATTERIES.find((p: any) => p.id === blueprint.batteryId);
-    const radio = RADIOS.find((p: any) => p.id === blueprint.radioId);
-    
-    if (!airframe || !battery || !radio) return;
+    const stats = compileBlueprint(blueprint);
+    if (!stats) return;
 
-    const massPayload = battery.massKg + radio.massKg;
-
-    set({
+    set((state) => ({
       gamePhase: 'tactical',
+      budget: state.budget - stats.totalCost,
       drone: {
         id: blueprint.id,
         position: GAME_CONSTANTS.HOME_BASE_POS,
         targetPosition: null,
         status: 'idle',
-        batteryMaxWh: battery.specs.capacityWh!,
-        batteryWh: battery.specs.capacityWh!,
-        pBase: airframe.specs.basePowerDrawW!,
-        pRadio: radio.specs.basePowerDrawW!,
-        mPayload: massPayload,
-        mMax: airframe.specs.maxPayloadKg!,
-        vMax: airframe.specs.maxSpeedMs!,
-        radioRangeMeters: radio.specs.radioRangeMeters!,
+        batteryMaxWh: stats.batteryMaxWh,
+        batteryWh: stats.batteryMaxWh,
+        pBase: stats.pBase,
+        pRadio: stats.pRadio,
+        mPayload: stats.mPayload,
+        mMax: stats.mMax,
+        vMax: stats.vMax,
+        radioRangeMeters: stats.radioRangeMeters,
       }
-    });
+    }));
   },
   launchDrone: () =>
     set((state) => ({
