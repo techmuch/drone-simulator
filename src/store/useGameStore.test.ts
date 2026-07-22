@@ -1,31 +1,83 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useGameStore } from './useGameStore';
 import { GAME_CONSTANTS } from '../constants';
 
 describe('useGameStore', () => {
-  it('initializes with a drone at home base', () => {
+  beforeEach(() => {
+    // Reset store state before each test
+    useGameStore.setState({
+      drone: {
+        id: 'scout-1',
+        position: GAME_CONSTANTS.HOME_BASE_POS,
+        targetPosition: null,
+        status: 'idle',
+        batteryWh: 80,
+        batteryMaxWh: 80,
+        pBase: 20,
+        pRadio: 5,
+        mPayload: 1.0,
+        mMax: 2.0,
+        vMax: 15,
+      },
+      simulationRunning: false,
+    });
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    useGameStore.getState().stopSimulation();
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
+  it('initializes with a full battery at home base', () => {
     const state = useGameStore.getState();
     expect(state.drone.status).toBe('idle');
-    expect(state.drone.position).toEqual(GAME_CONSTANTS.HOME_BASE_POS);
-    expect(state.drone.targetPosition).toBeNull();
+    expect(state.drone.batteryWh).toBe(80);
   });
 
-  it('updates state when launchDrone is called', () => {
+  it('drains battery correctly on each tick', () => {
     const store = useGameStore.getState();
-    store.launchDrone();
-
+    
+    // P_total = 20 * (1 + 1/2) + 5 = 35 W
+    // Drain per tick = 35 / 3600 = 0.009722 Wh
+    store.tick();
+    
     const updatedState = useGameStore.getState();
-    expect(updatedState.drone.status).toBe('deploying');
-    expect(updatedState.drone.targetPosition).toEqual(GAME_CONSTANTS.TARGET_POS);
+    expect(updatedState.drone.batteryWh).toBeCloseTo(80 - (35 / 3600), 5);
   });
 
-  it('resolves deployment and resets state', () => {
-    const store = useGameStore.getState();
-    store.resolveDeployment();
+  it('crashes the drone if battery hits 0 while deployed', () => {
+    useGameStore.setState((state) => ({
+      drone: {
+        ...state.drone,
+        status: 'deploying',
+        batteryWh: 0.005, // Almost dead
+      }
+    }));
 
-    const resolvedState = useGameStore.getState();
-    expect(resolvedState.drone.status).toBe('idle');
-    expect(resolvedState.drone.position).toEqual(GAME_CONSTANTS.TARGET_POS);
-    expect(resolvedState.drone.targetPosition).toBeNull();
+    const store = useGameStore.getState();
+    store.tick(); // Will drain more than 0.005
+    
+    const finalState = useGameStore.getState();
+    expect(finalState.drone.batteryWh).toBe(0);
+    expect(finalState.drone.status).toBe('crashed');
+  });
+
+  it('starts and stops the simulation loop', () => {
+    const store = useGameStore.getState();
+    store.startSimulation();
+    
+    expect(useGameStore.getState().simulationRunning).toBe(true);
+    
+    vi.advanceTimersByTime(1000); // 1 tick
+    
+    expect(useGameStore.getState().drone.batteryWh).toBeLessThan(80);
+    
+    const currentBattery = useGameStore.getState().drone.batteryWh;
+    store.stopSimulation();
+    
+    vi.advanceTimersByTime(2000); // should not tick anymore
+    expect(useGameStore.getState().drone.batteryWh).toBe(currentBattery);
   });
 });

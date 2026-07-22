@@ -28,12 +28,21 @@ export class TacticalMap extends Scene {
     const droneState = store.drone;
 
     if (droneState.status === 'deploying' && droneState.targetPosition) {
-      this.moveDrone(droneState.targetPosition, delta, store.resolveDeployment);
+      this.moveDrone(droneState, delta, store.resolveDeployment);
+    } else if (droneState.status === 'crashed') {
+      this.droneSprite.setFillStyle(0xff0000); // Red wreckage
+    } else {
+      this.droneSprite.setFillStyle(0x00ffff); // Normal color
     }
   }
 
-  private moveDrone(target: {x: number, y: number}, delta: number, onComplete: () => void) {
-    const speed = 0.2; // pixels per ms
+  private moveDrone(droneState: any, delta: number, onComplete: () => void) {
+    // Calculate dynamic speed based on payload
+    // v = vMax * (1 - 0.5 * mPayload / mMax) -> m/s which equals px/s
+    const speedPxPerSec = droneState.vMax * (1 - 0.5 * droneState.mPayload / droneState.mMax);
+    const speed = speedPxPerSec / 1000; // px per ms
+
+    const target = droneState.targetPosition;
     const dx = target.x - this.droneSprite.x;
     const dy = target.y - this.droneSprite.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
