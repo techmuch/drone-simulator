@@ -45,6 +45,11 @@ export function HUD() {
                 style={{ left: `${(bingoWh / drone.batteryMaxWh) * 100}%` }}
               ></div>
             </div>
+            {drone.inStorm && (
+              <div className="mt-2 text-xs font-bold text-red-400 animate-pulse bg-red-900/30 p-1 rounded text-center border border-red-500/50">
+                ⚠ WEATHER WARNING: -40% EFFICIENCY ⚠
+              </div>
+            )}
             {isBingo && drone.status !== 'crashed' && (
               <div className="text-red-500 text-xs font-bold mt-1 text-center animate-pulse">
                 BINGO FUEL - CRITICAL

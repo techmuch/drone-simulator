@@ -6,7 +6,8 @@ export const calculateSpeed = (drone: Drone): number => {
 };
 
 export const calculatePowerDraw = (drone: Drone): number => {
-  return drone.pBase * (1 + drone.mPayload / drone.mMax) + drone.pRadio;
+  const baseDraw = drone.pBase * (1 + drone.mPayload / drone.mMax) + drone.pRadio;
+  return drone.inStorm ? baseDraw * 1.4 : baseDraw;
 };
 
 export const getDistance = (p1: Vector2D, p2: Vector2D): number => {

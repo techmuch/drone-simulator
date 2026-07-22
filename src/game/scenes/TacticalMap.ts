@@ -5,6 +5,7 @@ import { GAME_CONSTANTS } from '../../constants';
 export class TacticalMap extends Scene {
   private droneSprite!: Phaser.GameObjects.Arc;
   private droneRangeRing!: Phaser.GameObjects.Arc;
+  private stormSprites: Phaser.GameObjects.Arc[] = [];
 
   constructor() {
     super('TacticalMap');
@@ -26,6 +27,13 @@ export class TacticalMap extends Scene {
     // Initialize Drone Sprite & Range Ring
     const store = useGameStore.getState();
     const droneState = store.drone;
+    const storms = store.stormCells;
+
+    // Draw Storm Cells
+    this.stormSprites = storms.map(storm => 
+      this.add.circle(storm.position.x, storm.position.y, storm.radius, 0x555555, 0.4)
+          .setStrokeStyle(2, 0x888888, 0.6)
+    );
     
     this.droneRangeRing = this.add.circle(droneState.position.x, droneState.position.y, droneState.radioRangeMeters, 0x00ff00, 0.1)
         .setStrokeStyle(1, 0x00ff00, 0.5);
@@ -37,6 +45,13 @@ export class TacticalMap extends Scene {
     const store = useGameStore.getState();
     const droneState = store.drone;
     const networkConnected = store.networkConnected;
+    const storms = store.stormCells;
+
+    // Update Storm positions
+    storms.forEach((storm, index) => {
+      this.stormSprites[index].x = storm.position.x;
+      this.stormSprites[index].y = storm.position.y;
+    });
 
     this.droneSprite.x += (droneState.position.x - this.droneSprite.x) * 0.1;
     this.droneSprite.y += (droneState.position.y - this.droneSprite.y) * 0.1;
@@ -46,13 +61,18 @@ export class TacticalMap extends Scene {
 
     if (droneState.status === 'crashed') {
       this.droneSprite.setFillStyle(0xff0000); // Red wreckage
-      this.droneRangeRing.setVisible(false);
+      this.droneRangeRing.setFillStyle(0xff0000, 0.1).setStrokeStyle(1, 0xff0000, 0.5);
     } else {
       this.droneSprite.setFillStyle(0x00ffff); // Normal color
+      
+      const range = droneState.inStorm ? droneState.radioRangeMeters * 0.5 : droneState.radioRangeMeters;
+      // Shrink/Grow the ring dynamically
+      this.droneRangeRing.setRadius(this.droneRangeRing.radius + (range - this.droneRangeRing.radius) * 0.1);
+
       if (networkConnected) {
-        this.droneRangeRing.setVisible(true);
+        this.droneRangeRing.setFillStyle(0x00ff00, 0.1).setStrokeStyle(1, 0x00ff00, 0.5);
       } else {
-        this.droneRangeRing.setVisible(false);
+        this.droneRangeRing.setFillStyle(0xff0000, 0.1).setStrokeStyle(1, 0xff0000, 0.5);
       }
     }
   }

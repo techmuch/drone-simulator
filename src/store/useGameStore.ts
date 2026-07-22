@@ -7,6 +7,13 @@ export interface Vector2D {
   y: number;
 }
 
+export interface StormCell {
+  id: string;
+  position: Vector2D;
+  velocity: Vector2D;
+  radius: number;
+}
+
 export interface Drone {
   id: string;
   position: Vector2D;
@@ -21,6 +28,7 @@ export interface Drone {
   mMax: number;
   vMax: number;
   radioRangeMeters: number;
+  inStorm: boolean;
 }
 
 import type { DroneBlueprint } from '../game/parts';
@@ -30,6 +38,7 @@ interface GameState {
   budget: number;
   gamePhase: 'hangar' | 'tactical';
   drone: Drone;
+  stormCells: StormCell[];
   simulationRunning: boolean;
   networkConnected: boolean;
   sectorCovered: boolean;
@@ -60,7 +69,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     mMax: 2.0,
     vMax: 15,
     radioRangeMeters: 200,
+    inStorm: false,
   },
+  stormCells: [
+    { id: 'storm-1', position: { x: 300, y: 150 }, velocity: { x: 0, y: 10 }, radius: 80 },
+    { id: 'storm-2', position: { x: 500, y: 400 }, velocity: { x: -10, y: -5 }, radius: 100 }
+  ],
   simulationRunning: false,
   networkConnected: true,
   sectorCovered: false,
@@ -86,6 +100,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         mMax: stats.mMax,
         vMax: stats.vMax,
         radioRangeMeters: stats.radioRangeMeters,
+        inStorm: false,
       }
     }));
   },
@@ -103,17 +118,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (drone.status === 'crashed') return state;
 
       const speed = calculateSpeed(drone);
-      const pTotal = calculatePowerDraw(drone);
-      const drainWh = pTotal / 3600; // Wh consumed in 1 second
-      
-      const newBattery = Math.max(0, drone.batteryWh - drainWh);
       
       let newStatus: Drone['status'] = drone.status;
       let newPosition = { ...drone.position };
       let newTarget = drone.targetPosition;
 
       if (drone.status === 'deploying' && newTarget) {
-        // Move drone by speed (px/sec) for this 1 Hz tick
         const dx = newTarget.x - newPosition.x;
         const dy = newTarget.y - newPosition.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -127,14 +137,31 @@ export const useGameStore = create<GameState>((set, get) => ({
           newPosition.y += (dy / dist) * speed;
         }
       }
+
+      // Update storm cells
+      const newStormCells = state.stormCells.map(storm => ({
+        ...storm,
+        position: {
+          x: storm.position.x + storm.velocity.x,
+          y: storm.position.y + storm.velocity.y,
+        }
+      }));
+
+      // Check storm collision
+      const inStorm = newStormCells.some(storm => getDistance(newPosition, storm.position) < storm.radius);
+
+      const tempDrone = { ...drone, inStorm };
+      const pTotal = calculatePowerDraw(tempDrone);
+      const drainWh = pTotal / 3600; // Wh consumed in 1 second
+      const newBatteryWh = Math.max(0, drone.batteryWh - drainWh);
       
       // Crash if out of battery while deployed
-      if (newBattery === 0 && newStatus === 'deploying') {
+      if (newBatteryWh === 0 && newStatus === 'deploying') {
         newStatus = 'crashed';
       }
 
       // Mesh Logic
-      const range = drone.radioRangeMeters;
+      const range = inStorm ? drone.radioRangeMeters * 0.5 : drone.radioRangeMeters;
       const droneConnected = getDistance(newPosition, GAME_CONSTANTS.HOME_BASE_POS) <= range;
       const sectorConnected = droneConnected && getDistance(newPosition, GAME_CONSTANTS.TARGET_POS) <= range;
       
@@ -153,12 +180,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
 
       return {
+        stormCells: newStormCells,
         drone: {
           ...drone,
           position: newPosition,
           targetPosition: newTarget,
-          batteryWh: newBattery,
-          status: newStatus
+          batteryWh: newBatteryWh,
+          status: newStatus,
+          inStorm,
         },
         networkConnected: droneConnected,
         sectorCovered: sectorConnected,

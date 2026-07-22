@@ -21,6 +21,7 @@ describe('useGameStore', () => {
         mMax: 2.0,
         vMax: 15,
         radioRangeMeters: 200,
+        inStorm: false,
       },
       simulationRunning: false,
       networkConnected: true,
@@ -57,6 +58,29 @@ describe('useGameStore', () => {
     expect(newState.drone.batteryMaxWh).toBe(200);
     expect(newState.drone.radioRangeMeters).toBe(500);
     expect(newState.budget).toBe(800); // 2000 - (500 + 300 + 400)
+  });
+
+  it('applies storm cell penalties to power draw and radio range', () => {
+    useGameStore.setState({
+      drone: {
+        ...useGameStore.getState().drone,
+        position: { x: 100, y: 100 },
+        inStorm: false,
+        batteryWh: 80,
+      },
+      stormCells: [
+        { id: 'test-storm', position: { x: 100, y: 100 }, velocity: { x: 0, y: 0 }, radius: 50 }
+      ]
+    });
+    
+    useGameStore.getState().tick();
+    
+    const state = useGameStore.getState();
+    expect(state.drone.inStorm).toBe(true);
+    // Base draw is 20, payload 1, mMax 2 => 20 * 1.5 + 5 = 35W
+    // In storm: 35W * 1.4 = 49W
+    // 1 tick = 1 sec = 49 / 3600 Wh drained
+    expect(state.drone.batteryWh).toBeCloseTo(80 - (49 / 3600), 5);
   });
 
   it('drops connectivity and decreases buffer when out of range', () => {
