@@ -6,6 +6,7 @@ export class TacticalMap extends Scene {
   private droneSprite!: Phaser.GameObjects.Arc;
   private droneRangeRing!: Phaser.GameObjects.Arc;
   private stormSprites: Phaser.GameObjects.Arc[] = [];
+  private wreckageGroup!: Phaser.GameObjects.Group;
 
   constructor() {
     super('TacticalMap');
@@ -35,6 +36,8 @@ export class TacticalMap extends Scene {
           .setStrokeStyle(2, 0x888888, 0.6)
     );
     
+    this.wreckageGroup = this.add.group();
+
     this.droneRangeRing = this.add.circle(droneState.position.x, droneState.position.y, droneState.radioRangeMeters, 0x00ff00, 0.1)
         .setStrokeStyle(1, 0x00ff00, 0.5);
         
@@ -51,6 +54,13 @@ export class TacticalMap extends Scene {
     storms.forEach((storm, index) => {
       this.stormSprites[index].x = storm.position.x;
       this.stormSprites[index].y = storm.position.y;
+    });
+
+    // Render Wreckage
+    this.wreckageGroup.clear(true, true);
+    store.wreckage.forEach(w => {
+      const wSprite = this.add.circle(w.position.x, w.position.y, 8, 0x880000).setStrokeStyle(1, 0xff0000, 0.8);
+      this.wreckageGroup.add(wSprite);
     });
 
     this.droneSprite.x += (droneState.position.x - this.droneSprite.x) * 0.1;

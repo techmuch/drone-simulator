@@ -21,24 +21,30 @@ export interface DroneBlueprint {
   airframeId: string;
   batteryId: string;
   radioId: string;
+  auxPayloadId?: string;
 }
 
 export function compileBlueprint(blueprint: Omit<DroneBlueprint, 'id' | 'name'>) {
   const airframe = AIRFRAMES.find(p => p.id === blueprint.airframeId);
   const battery = BATTERIES.find(p => p.id === blueprint.batteryId);
   const radio = RADIOS.find(p => p.id === blueprint.radioId);
+  const payload = blueprint.auxPayloadId ? PAYLOADS.find(p => p.id === blueprint.auxPayloadId) : undefined;
   
   if (!airframe || !battery || !radio) return null;
 
+  const payloadMass = payload ? payload.massKg : 0;
+  const payloadCost = payload ? payload.cost : 0;
+
   return {
-    totalCost: airframe.cost + battery.cost + radio.cost,
+    totalCost: airframe.cost + battery.cost + radio.cost + payloadCost,
     batteryMaxWh: battery.specs.capacityWh!,
     pBase: airframe.specs.basePowerDrawW!,
     pRadio: radio.specs.basePowerDrawW!,
-    mPayload: battery.massKg + radio.massKg,
+    mPayload: battery.massKg + radio.massKg + payloadMass,
     mMax: airframe.specs.maxPayloadKg!,
     vMax: airframe.specs.maxSpeedMs!,
     radioRangeMeters: radio.specs.radioRangeMeters!,
+    payloadId: blueprint.auxPayloadId,
   };
 }
 
@@ -114,5 +120,24 @@ export const RADIOS: ComponentPart[] = [
       radioRangeMeters: 500,
       basePowerDrawW: 15,
     }
+  }
+];
+
+export const PAYLOADS: ComponentPart[] = [
+  {
+    id: 'pay-none',
+    name: 'None',
+    type: 'payload',
+    massKg: 0,
+    cost: 0,
+    specs: {}
+  },
+  {
+    id: 'pay-winch',
+    name: 'Salvage Winch',
+    type: 'payload',
+    massKg: 1.0,
+    cost: 200,
+    specs: {}
   }
 ];

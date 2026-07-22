@@ -4,6 +4,9 @@ import { calculatePowerDraw, calculateBingoWh } from '../game/physics';
 export function HUD() {
   const drone = useGameStore((state) => state.drone);
   const launchDrone = useGameStore((state) => state.launchDrone);
+  const sectorCovered = useGameStore((state) => state.sectorCovered);
+  const sectorTimeRemaining = useGameStore((state) => state.sectorTimeRemaining);
+  const sectorStatus = useGameStore((state) => state.sectorStatus);
 
   // Math from Physics module
   const pTotal = calculatePowerDraw(drone);
@@ -55,9 +58,27 @@ export function HUD() {
                 BINGO FUEL - CRITICAL
               </div>
             )}
+            <div className={`mt-2 font-bold ${sectorCovered ? 'text-green-400' : 'text-neutral-500'}`}>
+              {sectorCovered ? 'SECTOR TARGET COVERED' : 'TARGET NOT COVERED'}
+            </div>
+            {sectorStatus === 'active' && (
+              <div className="mt-2 text-sm text-neutral-300 font-bold border-t border-neutral-700 pt-2">
+                RELIEF TIMER: <span className={sectorCovered ? 'text-green-400' : 'text-neutral-500'}>{sectorTimeRemaining}s</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Sector Cleared Overlay */}
+      {sectorStatus === 'cleared' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-50 pointer-events-none">
+          <div className="bg-green-900 border-2 border-green-400 p-8 rounded shadow-2xl text-center animate-bounce">
+            <h1 className="text-4xl font-bold text-green-400 mb-2">SECTOR RELIEVED</h1>
+            <p className="text-xl text-green-200">+ $1000 BOUNTY GRANTED</p>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Action Bar */}
       <div className="flex justify-end pointer-events-auto">

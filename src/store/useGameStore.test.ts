@@ -22,10 +22,14 @@ describe('useGameStore', () => {
         vMax: 15,
         radioRangeMeters: 200,
         inStorm: false,
+        totalCost: 750,
       },
+      wreckage: [],
       simulationRunning: false,
       networkConnected: true,
       sectorCovered: false,
+      sectorTimeRemaining: 30,
+      sectorStatus: 'active',
       bufferTimeRemaining: 10,
       missionStatus: 'active',
     });
@@ -154,5 +158,75 @@ describe('useGameStore', () => {
     
     vi.advanceTimersByTime(2000); // should not tick anymore
     expect(useGameStore.getState().drone.batteryWh).toBe(currentBattery);
+  });
+
+  it('ticks down relief timer and clears sector', () => {
+    useGameStore.setState({
+      sectorCovered: true,
+      sectorTimeRemaining: 2,
+      sectorStatus: 'active',
+      networkConnected: true,
+      missionStatus: 'active',
+      gamePhase: 'tactical',
+      budget: 1000,
+      drone: { 
+        ...useGameStore.getState().drone, 
+        status: 'idle',
+        position: GAME_CONSTANTS.TARGET_POS,
+        radioRangeMeters: 1000
+      },
+    });
+    
+    useGameStore.getState().tick();
+    expect(useGameStore.getState().sectorTimeRemaining).toBe(1);
+    expect(useGameStore.getState().sectorStatus).toBe('active');
+    
+    useGameStore.getState().tick();
+    expect(useGameStore.getState().sectorTimeRemaining).toBe(0);
+    expect(useGameStore.getState().sectorStatus).toBe('cleared');
+    expect(useGameStore.getState().budget).toBe(2000); // 1000 + 1000 bounty
+    expect(useGameStore.getState().gamePhase).toBe('mission_cleared');
+  });
+
+  it('crashes drone, pushes to wreckage, and returns to hangar', () => {
+    useGameStore.setState({
+      gamePhase: 'tactical',
+      drone: {
+        ...useGameStore.getState().drone,
+        batteryWh: 0.001, // Almost empty
+        status: 'deploying',
+        position: { x: 50, y: 50 },
+        inStorm: false,
+      }
+    });
+
+    useGameStore.getState().tick();
+    
+    const state = useGameStore.getState();
+    expect(state.drone.status).toBe('crashed');
+    expect(state.gamePhase).toBe('hangar');
+    expect(state.wreckage.length).toBe(1);
+    expect(state.wreckage[0].position).toEqual({ x: 50, y: 50 });
+  });
+
+  it('salvages wreckage when equipped with winch', () => {
+    useGameStore.setState({
+      budget: 1000,
+      wreckage: [
+        { ...useGameStore.getState().drone, position: { x: 100, y: 100 }, totalCost: 500 }
+      ],
+      drone: {
+        ...useGameStore.getState().drone,
+        position: { x: 100, y: 100 },
+        payloadId: 'pay-winch',
+        status: 'idle',
+      }
+    });
+
+    useGameStore.getState().tick();
+    
+    const state = useGameStore.getState();
+    expect(state.wreckage.length).toBe(0);
+    expect(state.budget).toBe(1500); // 1000 + 500 salvage
   });
 });

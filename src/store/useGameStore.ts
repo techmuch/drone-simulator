@@ -29,6 +29,8 @@ export interface Drone {
   vMax: number;
   radioRangeMeters: number;
   inStorm: boolean;
+  payloadId?: string;
+  totalCost: number;
 }
 
 import type { DroneBlueprint } from '../game/parts';
@@ -36,12 +38,15 @@ import { compileBlueprint } from '../game/parts';
 
 interface GameState {
   budget: number;
-  gamePhase: 'hangar' | 'tactical';
+  gamePhase: 'hangar' | 'tactical' | 'mission_cleared';
   drone: Drone;
+  wreckage: Drone[];
   stormCells: StormCell[];
   simulationRunning: boolean;
   networkConnected: boolean;
   sectorCovered: boolean;
+  sectorTimeRemaining: number;
+  sectorStatus: 'active' | 'cleared';
   bufferTimeRemaining: number;
   missionStatus: 'active' | 'failed';
   deployBlueprint: (blueprint: DroneBlueprint) => void;
@@ -70,7 +75,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     vMax: 15,
     radioRangeMeters: 200,
     inStorm: false,
+    payloadId: undefined,
+    totalCost: 750,
   },
+  wreckage: [],
   stormCells: [
     { id: 'storm-1', position: { x: 300, y: 150 }, velocity: { x: 0, y: 10 }, radius: 80 },
     { id: 'storm-2', position: { x: 500, y: 400 }, velocity: { x: -10, y: -5 }, radius: 100 }
@@ -78,6 +86,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   simulationRunning: false,
   networkConnected: true,
   sectorCovered: false,
+  sectorTimeRemaining: 30,
+  sectorStatus: 'active',
   bufferTimeRemaining: GAME_CONSTANTS.BUFFER_TIME_SEC,
   missionStatus: 'active',
   deployBlueprint: (blueprint) => {
@@ -101,6 +111,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         vMax: stats.vMax,
         radioRangeMeters: stats.radioRangeMeters,
         inStorm: false,
+        payloadId: stats.payloadId,
+        totalCost: stats.totalCost,
       }
     }));
   },
@@ -150,14 +162,42 @@ export const useGameStore = create<GameState>((set, get) => ({
       // Check storm collision
       const inStorm = newStormCells.some(storm => getDistance(newPosition, storm.position) < storm.radius);
 
+      // We need a temporary drone object with the new inStorm status to calculate power draw for this tick
       const tempDrone = { ...drone, inStorm };
       const pTotal = calculatePowerDraw(tempDrone);
       const drainWh = pTotal / 3600; // Wh consumed in 1 second
       const newBatteryWh = Math.max(0, drone.batteryWh - drainWh);
       
+      let newWreckage = [...state.wreckage];
+      let newBudget = state.budget;
+      let newPhase = state.gamePhase;
+      let newSectorStatus = state.sectorStatus;
+      let newSectorTime = state.sectorTimeRemaining;
+
+      // Winch Salvage Logic
+      if (drone.payloadId === 'pay-winch') {
+        const SALVAGE_RANGE = 20;
+        const toRemove: number[] = [];
+        newWreckage.forEach((wreck, i) => {
+          if (getDistance(newPosition, wreck.position) < SALVAGE_RANGE) {
+            toRemove.push(i);
+            newBudget += wreck.totalCost;
+          }
+        });
+        toRemove.reverse().forEach(i => newWreckage.splice(i, 1));
+      }
+
       // Crash if out of battery while deployed
       if (newBatteryWh === 0 && newStatus === 'deploying') {
         newStatus = 'crashed';
+        newWreckage.push({
+          ...drone,
+          position: newPosition,
+          batteryWh: newBatteryWh,
+          status: newStatus,
+          inStorm,
+        });
+        newPhase = 'hangar';
       }
 
       // Mesh Logic
@@ -179,7 +219,25 @@ export const useGameStore = create<GameState>((set, get) => ({
         newBuffer = GAME_CONSTANTS.BUFFER_TIME_SEC;
       }
 
+      // Relief Timer Logic
+      if (sectorConnected && newSectorStatus === 'active' && newPhase === 'tactical' && newStatus === 'idle' && newMissionStatus !== 'failed') {
+        // Only tick down if connected, active, and we haven't failed.
+        // Wait, the spec: "When it hits 0, grant a cash payout...". 
+        // If they are in the sector and connected, tick down.
+        newSectorTime = Math.max(0, newSectorTime - 1);
+        if (newSectorTime === 0) {
+          newSectorStatus = 'cleared';
+          newBudget += 1000;
+          newPhase = 'mission_cleared';
+        }
+      }
+
       return {
+        gamePhase: newPhase,
+        budget: newBudget,
+        wreckage: newWreckage,
+        sectorTimeRemaining: newSectorTime,
+        sectorStatus: newSectorStatus,
         stormCells: newStormCells,
         drone: {
           ...drone,

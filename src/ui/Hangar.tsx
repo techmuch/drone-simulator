@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
-import { AIRFRAMES, BATTERIES, RADIOS } from '../game/parts';
+import { AIRFRAMES, BATTERIES, RADIOS, PAYLOADS } from '../game/parts';
 import type { ComponentPart } from '../game/parts';
 import { compileBlueprint } from '../game/parts';
 import { calculateSpeed, calculatePowerDraw, calculateFlightTimeSec } from '../game/physics';
@@ -48,8 +48,9 @@ export function Hangar() {
   const [airframeId, setAirframeId] = useState(AIRFRAMES[0].id);
   const [batteryId, setBatteryId] = useState(BATTERIES[0].id);
   const [radioId, setRadioId] = useState(RADIOS[0].id);
+  const [payloadId, setPayloadId] = useState(PAYLOADS[0].id);
 
-  const stats = compileBlueprint({ airframeId, batteryId, radioId });
+  const stats = compileBlueprint({ airframeId, batteryId, radioId, auxPayloadId: payloadId });
   if (!stats) return null;
 
   const mockDrone = { ...stats } as any;
@@ -69,6 +70,7 @@ export function Hangar() {
       airframeId,
       batteryId,
       radioId,
+      auxPayloadId: payloadId,
     });
   };
 
@@ -105,6 +107,14 @@ export function Hangar() {
           selectedId={radioId} 
           onSelect={setRadioId}
           renderSpecs={(p) => `Range: ${p.specs.radioRangeMeters}m | Mass: ${p.massKg}kg`}
+        />
+
+        <PartSelector 
+          label="PAYLOAD" 
+          parts={PAYLOADS} 
+          selectedId={payloadId} 
+          onSelect={setPayloadId}
+          renderSpecs={(p) => p.id === 'pay-none' ? 'No extra payload' : `Mass: ${p.massKg}kg`}
         />
       </div>
 
