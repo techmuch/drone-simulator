@@ -26,6 +26,7 @@ interface GameState {
   drone: Drone;
   simulationRunning: boolean;
   networkConnected: boolean;
+  sectorCovered: boolean;
   bufferTimeRemaining: number;
   missionStatus: 'active' | 'failed';
   launchDrone: () => void;
@@ -52,6 +53,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   simulationRunning: false,
   networkConnected: true,
+  sectorCovered: false,
   bufferTimeRemaining: GAME_CONSTANTS.BUFFER_TIME_SEC,
   missionStatus: 'active',
   launchDrone: () =>
@@ -65,7 +67,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   tick: () =>
     set((state) => {
       const drone = state.drone;
-      if (drone.status === 'crashed' || state.missionStatus === 'failed') return state;
+      if (drone.status === 'crashed') return state;
 
       const speed = calculateSpeed(drone);
       const pTotal = calculatePowerDraw(drone);
@@ -100,6 +102,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       // Mesh Logic
       const droneConnected = getDistance(newPosition, GAME_CONSTANTS.HOME_BASE_POS) <= GAME_CONSTANTS.COMM_RANGE;
+      const sectorConnected = droneConnected && getDistance(newPosition, GAME_CONSTANTS.TARGET_POS) <= GAME_CONSTANTS.COMM_RANGE;
       
       let newBuffer = state.bufferTimeRemaining;
       let newMissionStatus: GameState['missionStatus'] = state.missionStatus;
@@ -124,6 +127,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           status: newStatus
         },
         networkConnected: droneConnected,
+        sectorCovered: sectorConnected,
         bufferTimeRemaining: newBuffer,
         missionStatus: newMissionStatus,
       };

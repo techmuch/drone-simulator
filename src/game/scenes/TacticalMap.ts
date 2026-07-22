@@ -23,10 +23,6 @@ export class TacticalMap extends Scene {
     this.add.rectangle(GAME_CONSTANTS.TARGET_POS.x, GAME_CONSTANTS.TARGET_POS.y, 100, 100, 0x550000, 0.5);
     this.add.text(GAME_CONSTANTS.TARGET_POS.x - 40, GAME_CONSTANTS.TARGET_POS.y - 60, 'SECTOR 4', { color: '#ff5555' });
 
-    // Home Base Range Ring
-    this.add.circle(GAME_CONSTANTS.HOME_BASE_POS.x, GAME_CONSTANTS.HOME_BASE_POS.y, GAME_CONSTANTS.COMM_RANGE, 0x00ff00, 0.1)
-        .setStrokeStyle(1, 0x00ff00, 0.5);
-
     // Initialize Drone Sprite & Range Ring
     const store = useGameStore.getState();
     const droneState = store.drone;
@@ -50,13 +46,13 @@ export class TacticalMap extends Scene {
 
     if (droneState.status === 'crashed') {
       this.droneSprite.setFillStyle(0xff0000); // Red wreckage
-      this.droneRangeRing.setFillStyle(0xff0000, 0.1).setStrokeStyle(1, 0xff0000, 0.5);
+      this.droneRangeRing.setVisible(false);
     } else {
       this.droneSprite.setFillStyle(0x00ffff); // Normal color
       if (networkConnected) {
-        this.droneRangeRing.setFillStyle(0x00ff00, 0.1).setStrokeStyle(1, 0x00ff00, 0.5);
+        this.droneRangeRing.setVisible(true);
       } else {
-        this.droneRangeRing.setFillStyle(0xff0000, 0.1).setStrokeStyle(1, 0xff0000, 0.5);
+        this.droneRangeRing.setVisible(false);
       }
     }
   }

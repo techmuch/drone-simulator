@@ -51,15 +51,15 @@ describe('useGameStore', () => {
       }
     }));
     
-    let store = useGameStore.getState();
-    store.tick();
+    const tick = useGameStore.getState().tick;
+    tick();
     
     expect(useGameStore.getState().networkConnected).toBe(false);
     expect(useGameStore.getState().bufferTimeRemaining).toBe(9); // 10 -> 9
     
     // Tick 9 more times to fail mission
     for (let i = 0; i < 9; i++) {
-      useGameStore.getState().tick();
+      tick();
     }
     
     expect(useGameStore.getState().bufferTimeRemaining).toBe(0);

@@ -1,4 +1,4 @@
-import type { Drone } from '../store/useGameStore';
+import type { Drone, Vector2D } from '../store/useGameStore';
 import { GAME_CONSTANTS } from '../constants';
 
 export const calculateSpeed = (drone: Drone): number => {
@@ -9,7 +9,7 @@ export const calculatePowerDraw = (drone: Drone): number => {
   return drone.pBase * (1 + drone.mPayload / drone.mMax) + drone.pRadio;
 };
 
-export const getDistance = (p1: { x: number, y: number }, p2: { x: number, y: number }): number => {
+export const getDistance = (p1: Vector2D, p2: Vector2D): number => {
   const dx = p1.x - p2.x;
   const dy = p1.y - p2.y;
   return Math.sqrt(dx * dx + dy * dy);
